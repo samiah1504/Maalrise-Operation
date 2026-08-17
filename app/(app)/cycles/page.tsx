@@ -12,7 +12,6 @@ import { EmptyState } from '@/components/ui/states'
 import { Button } from '@/components/ui/button'
 import { RecordDialog } from '@/components/forms/record-dialog'
 import { StatusChanger } from '@/components/forms/status-changer'
-import { CYCLE } from '@/lib/status'
 
 export const metadata = { title: 'Investment Cycles' }
 
@@ -209,5 +208,3 @@ function Item({ label, value }: { label: string; value: string }) {
     </div>
   )
 }
-
-export const CYCLE_STATUSES = CYCLE

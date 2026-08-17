@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { investorReportSchema, reason as reasonSchema, uuid } from '@/lib/schemas'
+import { CLOSING_STEPS, STEP_LABELS, type ClosingStep } from '@/lib/closing-steps'
 import { describeDbError, fail, guard, ok, run, zodFieldErrors } from './helpers'
 
 /** Monthly closing, investor reports and the six-step annual cycle closing. */
@@ -115,27 +116,10 @@ export async function computeAnnualClosing(cycleId: string, reason: string) {
   })
 }
 
-const STEPS = [
-  'accounts_review', 'reconciliation', 'management_approval',
-  'profit_confirmed', 'investor_allocation', 'payout_approved', 'completed',
-] as const
-
-export type ClosingStep = (typeof STEPS)[number]
-
-export const STEP_LABELS: Record<ClosingStep, string> = {
-  accounts_review: 'Accounts review',
-  reconciliation: 'Reconciliation',
-  management_approval: 'Management approval',
-  profit_confirmed: 'Final profit confirmation',
-  investor_allocation: 'Investor allocation',
-  payout_approved: 'Payout approval',
-  completed: 'Cycle completed',
-}
-
 export async function advanceAnnualClosing(cycleId: string, step: ClosingStep, reason: string) {
   return run(async () => {
     const parsed = z
-      .object({ cycleId: uuid, step: z.enum(STEPS), reason: reasonSchema })
+      .object({ cycleId: uuid, step: z.enum(CLOSING_STEPS), reason: reasonSchema })
       .safeParse({ cycleId, step, reason })
     if (!parsed.success) {
       return fail('A reason of at least three characters is required for each closing step.')

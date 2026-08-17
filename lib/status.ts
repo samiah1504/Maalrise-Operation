@@ -261,19 +261,28 @@ export const PRODUCT_TONE: Record<string, BadgeTone> = {
   discontinued: 'danger',
 }
 
-/** Every tone map in one lookup, so <StatusBadge> just needs the value. */
+/**
+ * Every tone map in one lookup, so <StatusBadge> only needs the value.
+ *
+ * Several maps share a key — `cancelled`, `approved` — with different meanings.
+ * The state machines are spread last so they win, because those are the
+ * statuses that appear on records throughout the app: a cancelled procurement
+ * batch or Murābaḥah contract must read as a problem, not as a neutral note.
+ * Where a page needs a different reading (a cancelled approval request, say),
+ * it passes an explicit `tone`.
+ */
 const ALL_TONES: Record<string, BadgeTone> = {
-  ...CYCLE.tone,
-  ...INVESTOR.tone,
-  ...SUPPLIER.tone,
-  ...PROCUREMENT.tone,
-  ...SHIPMENT.tone,
-  ...GOODS_RECEIPT.tone,
-  ...MURABAHA.tone,
-  ...REPAYMENT_SCHEDULE,
-  ...EXPENSE_TONE,
   ...APPROVAL_TONE,
+  ...EXPENSE_TONE,
   ...ANNUAL_CLOSING_TONE,
+  ...REPAYMENT_SCHEDULE,
+  ...SUPPLIER.tone,
+  ...GOODS_RECEIPT.tone,
+  ...SHIPMENT.tone,
+  ...INVESTOR.tone,
+  ...CYCLE.tone,
+  ...PROCUREMENT.tone,
+  ...MURABAHA.tone,
 }
 
 export function toneFor(status: string | null | undefined): BadgeTone {

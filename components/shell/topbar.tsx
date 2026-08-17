@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
 import { initials } from '@/lib/utils'
 import { titleForPath } from '@/lib/navigation'
-import { ROLE_LABELS } from '@/lib/auth'
+import { ROLE_LABELS } from '@/lib/roles'
 import type { CycleSummary, UserRole } from '@/lib/database.types'
 
 export function Topbar({
