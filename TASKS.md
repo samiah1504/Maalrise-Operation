@@ -9,10 +9,10 @@ Work strictly in order. Do not start a phase until the previous phase's acceptan
 ---
 
 ## Phase 0 — Project foundation
-- [x] Init Next.js 15 (App Router, TS strict, Tailwind, shadcn/ui, pnpm). Add ESLint/Prettier, Vitest, Playwright, `@serwist/next` PWA manifest (name "MaalRise", theme colour dark green).
+- [x] Init Next.js 15 (App Router, TS strict, Tailwind, shadcn/ui, pnpm). Add ESLint/Prettier, Vitest, Playwright, `@serwist/next` PWA manifest (name "MaalRise", theme colour royal purple).
 - [x] Supabase project linked; `supabase/config.toml`; `.env.example`.
 - [x] `lib/supabase` server/client/admin helpers; `lib/money.ts` (format ₦, FX helpers); `lib/settings.ts` (typed settings loader with cache).
-- [x] App shell: login page, protected layout, sidebar (desktop) + bottom nav (mobile), theme tokens (green/gold/cream), status badge component.
+- [x] App shell: login page, protected layout, sidebar (desktop) + bottom nav (mobile), theme tokens (purple/gold/off-white), status badge component.
 **Accept:** app runs, login works with seeded CEO, shell renders on phone width.
 
 ## Phase 1 — Complete database schema (all entities, before any feature UI)

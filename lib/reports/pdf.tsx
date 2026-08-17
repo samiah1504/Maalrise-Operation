@@ -5,37 +5,37 @@ import type { ReportSpec, ColumnType } from './registry'
 import { formatNaira, formatNumber, toNumber } from '@/lib/money'
 import { formatDate } from '@/lib/dates'
 
-/** MaalRise report styling: dark green, gold accent, cream surfaces. */
+/** MaalRise report styling: royal purple, gold accent, soft off-white surfaces. */
 const styles = StyleSheet.create({
-  page: { paddingTop: 36, paddingBottom: 48, paddingHorizontal: 32, fontSize: 8.5, color: '#1a2b24' },
+  page: { paddingTop: 36, paddingBottom: 48, paddingHorizontal: 32, fontSize: 8.5, color: '#1f1529' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     borderBottomWidth: 2,
-    borderBottomColor: '#0f4c37',
+    borderBottomColor: '#4f2574',
     paddingBottom: 8,
     marginBottom: 14,
   },
-  brand: { fontSize: 16, fontWeight: 'bold', color: '#0f4c37' },
-  platform: { fontSize: 8, color: '#5b6b64', marginTop: 2 },
+  brand: { fontSize: 16, fontWeight: 'bold', color: '#4f2574' },
+  platform: { fontSize: 8, color: '#6b6478', marginTop: 2 },
   reportTitle: { fontSize: 12, fontWeight: 'bold', textAlign: 'right' },
-  meta: { fontSize: 7.5, color: '#5b6b64', textAlign: 'right', marginTop: 2 },
+  meta: { fontSize: 7.5, color: '#6b6478', textAlign: 'right', marginTop: 2 },
 
   summaryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   summaryCard: {
     flexGrow: 1,
     minWidth: 110,
-    backgroundColor: '#f6f4ec',
+    backgroundColor: '#f5f1f9',
     borderRadius: 4,
     padding: 8,
   },
-  summaryLabel: { fontSize: 7, color: '#5b6b64', textTransform: 'uppercase' },
+  summaryLabel: { fontSize: 7, color: '#6b6478', textTransform: 'uppercase' },
   summaryValue: { fontSize: 11, fontWeight: 'bold', marginTop: 2 },
 
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#0f4c37',
+    backgroundColor: '#4f2574',
     paddingVertical: 5,
     paddingHorizontal: 3,
   },
@@ -45,16 +45,16 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 3,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#e3e0d6',
+    borderBottomColor: '#e7e3ee',
   },
-  rowAlt: { backgroundColor: '#faf9f4' },
+  rowAlt: { backgroundColor: '#faf8fc' },
   cell: { fontSize: 7.5 },
   totalRow: {
     flexDirection: 'row',
     paddingVertical: 5,
     paddingHorizontal: 3,
     borderTopWidth: 1.5,
-    borderTopColor: '#0f4c37',
+    borderTopColor: '#4f2574',
     marginTop: 2,
   },
   totalCell: { fontSize: 8, fontWeight: 'bold' },
@@ -62,11 +62,11 @@ const styles = StyleSheet.create({
   note: {
     marginTop: 14,
     padding: 8,
-    backgroundColor: '#f6f4ec',
+    backgroundColor: '#f5f1f9',
     borderLeftWidth: 3,
     borderLeftColor: '#b58a2b',
     fontSize: 7.5,
-    color: '#3d4a44',
+    color: '#453d52',
     lineHeight: 1.4,
   },
   footer: {
@@ -77,10 +77,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     borderTopWidth: 0.5,
-    borderTopColor: '#e3e0d6',
+    borderTopColor: '#e7e3ee',
     paddingTop: 6,
     fontSize: 7,
-    color: '#5b6b64',
+    color: '#6b6478',
   },
 })
 

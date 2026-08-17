@@ -27,17 +27,17 @@ export async function renderExcel(
   sheet.mergeCells(1, 1, 1, lastColumn)
   const titleCell = sheet.getCell(1, 1)
   titleCell.value = `${branding.name} — ${spec.title}`
-  titleCell.font = { size: 14, bold: true, color: { argb: 'FF0F4C37' } }
+  titleCell.font = { size: 14, bold: true, color: { argb: 'FF4F2574' } }
 
   sheet.mergeCells(2, 1, 2, lastColumn)
   sheet.getCell(2, 1).value = `${branding.platform} · ${cycleName}`
-  sheet.getCell(2, 1).font = { size: 10, color: { argb: 'FF5B6B64' } }
+  sheet.getCell(2, 1).font = { size: 10, color: { argb: 'FF6B6478' } }
 
   sheet.mergeCells(3, 1, 3, lastColumn)
   sheet.getCell(3, 1).value = `Generated ${new Date().toLocaleString('en-NG')}${
     spec.subtitle ? ` · ${spec.subtitle}` : ''
   }`
-  sheet.getCell(3, 1).font = { size: 9, italic: true, color: { argb: 'FF5B6B64' } }
+  sheet.getCell(3, 1).font = { size: 9, italic: true, color: { argb: 'FF6B6478' } }
 
   // --- Column headers -------------------------------------------------------
   const headerRow = sheet.getRow(5)
@@ -45,7 +45,7 @@ export async function renderExcel(
     const cell = headerRow.getCell(i + 1)
     cell.value = column.label
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F4C37' } }
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F2574' } }
     cell.alignment = {
       vertical: 'middle',
       horizontal: column.type && column.type !== 'text' && column.type !== 'date' ? 'right' : 'left',
@@ -86,7 +86,7 @@ export async function renderExcel(
 
     if (rowIndex % 2 === 1) {
       sheetRow.eachCell((cell) => {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7F5EF' } }
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F5FB' } }
       })
     }
   })
@@ -106,7 +106,7 @@ export async function renderExcel(
     })
 
     totalRow.eachCell((cell) => {
-      cell.border = { top: { style: 'thin', color: { argb: 'FF0F4C37' } } }
+      cell.border = { top: { style: 'thin', color: { argb: 'FF4F2574' } } }
     })
   }
 
@@ -114,7 +114,7 @@ export async function renderExcel(
     const noteRow = sheet.getRow(8 + spec.rows.length)
     sheet.mergeCells(noteRow.number, 1, noteRow.number, lastColumn)
     noteRow.getCell(1).value = spec.note
-    noteRow.getCell(1).font = { size: 9, italic: true, color: { argb: 'FF5B6B64' } }
+    noteRow.getCell(1).font = { size: 9, italic: true, color: { argb: 'FF6B6478' } }
     noteRow.getCell(1).alignment = { wrapText: true, vertical: 'top' }
     noteRow.height = 30
   }

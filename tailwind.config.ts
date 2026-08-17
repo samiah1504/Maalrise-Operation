@@ -1,7 +1,7 @@
 import type { Config } from 'tailwindcss'
 
 /**
- * MaalRise palette — elegant dark green, gold accent, cream surfaces.
+ * MaalRise palette — royal purple primary, gold accent, soft off-white surfaces.
  * Tokens are defined as HSL channels in app/globals.css so the same names
  * work in light and dark mode.
  */
@@ -29,11 +29,13 @@ const config: Config = {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
           muted: 'hsl(var(--primary-muted))',
+          strong: 'hsl(var(--primary-strong))',
         },
         gold: {
           DEFAULT: 'hsl(var(--gold))',
           foreground: 'hsl(var(--gold-foreground))',
           muted: 'hsl(var(--gold-muted))',
+          strong: 'hsl(var(--gold-strong))',
         },
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',
@@ -42,14 +44,17 @@ const config: Config = {
         destructive: {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
+          strong: 'hsl(var(--destructive-strong))',
         },
         success: {
           DEFAULT: 'hsl(var(--success))',
           foreground: 'hsl(var(--success-foreground))',
+          strong: 'hsl(var(--success-strong))',
         },
         warning: {
           DEFAULT: 'hsl(var(--warning))',
           foreground: 'hsl(var(--warning-foreground))',
+          strong: 'hsl(var(--warning-strong))',
         },
         muted: {
           DEFAULT: 'hsl(var(--muted))',

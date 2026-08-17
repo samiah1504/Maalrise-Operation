@@ -229,7 +229,7 @@ export function RepaymentTrendChart({ data }: { data: MonthlyPoint[] }) {
             name="Repayments"
             stroke={BRAND[mode].primary}
             strokeWidth={2}
-            dot={{ r: 4, strokeWidth: 2, fill: mode === 'dark' ? '#12211c' : '#ffffff' }}
+            dot={{ r: 4, strokeWidth: 2, fill: mode === 'dark' ? '#15101f' : '#ffffff' }}
             activeDot={{ r: 6 }}
           />
         </LineChart>

@@ -4,11 +4,17 @@
  * The categorical slots are the validated default set, in fixed order — a
  * series keeps its colour regardless of how many series are on screen.
  * Validated with the dataviz palette checker against both the light (#ffffff)
- * and dark (#12211c) chart surfaces: lightness band, chroma floor, adjacent CVD
+ * and dark (#15101f) chart surfaces: lightness band, chroma floor, adjacent CVD
  * separation (worst ΔE 9.1 light / 8.4 dark) and normal-vision floor all pass.
  *
  * Three light-mode slots fall below 3:1 against white, so every chart using
  * them ships direct labels and a value legend — never colour alone.
+ *
+ * The brand purple and gold below are deliberately kept out of that set: they
+ * are chrome, not data identity. They were validated as their own pair in both
+ * modes (worst adjacent ΔE 31.5 light / 24.8 dark, all steps inside the
+ * lightness band and above 3:1 against their surface), so a purple bar and a
+ * gold bar on facing charts stay tellable apart.
  */
 
 export const SERIES = {
@@ -16,10 +22,10 @@ export const SERIES = {
   dark: ['#3987e5', '#d95926', '#199e70', '#c98500'],
 } as const
 
-/** Single-measure charts use the MaalRise green rather than a categorical slot. */
+/** Single-measure charts use the MaalRise purple rather than a categorical slot. */
 export const BRAND = {
-  light: { primary: '#0f4c37', gold: '#b58a2b', muted: '#e3e0d6' },
-  dark: { primary: '#37a07a', gold: '#d9ab48', muted: '#25322c' },
+  light: { primary: '#6b3fa0', gold: '#b58a2b', muted: '#e2dde9' },
+  dark: { primary: '#a077dd', gold: '#b8892c', muted: '#2a2135' },
 } as const
 
 /** Profit and loss are a polarity, not two categories. */
@@ -29,8 +35,8 @@ export const POLARITY = {
 } as const
 
 export const AXIS = {
-  light: { text: '#5b6b64', grid: '#e8e5dc' },
-  dark: { text: '#9bada5', grid: '#25322c' },
+  light: { text: '#6b6478', grid: '#e7e3ee' },
+  dark: { text: '#a49bb4', grid: '#2a2135' },
 } as const
 
 export type Mode = 'light' | 'dark'

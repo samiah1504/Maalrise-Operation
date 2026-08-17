@@ -52,7 +52,7 @@ Unit price and minimums come from `system_settings` (defaults: ₦100,000/unit, 
 
 ## 8. UI conventions
 - Mobile first: bottom nav on phones, sidebar on ≥ md. Every table has a card view on small screens.
-- Theme: dark green primary, gold accent, cream/white surfaces. Status badges colour-coded and consistent across modules.
+- Theme: royal purple primary, gold accent, soft off-white surfaces. Status badges colour-coded and consistent across modules.
 - Every list: search, filters, sort, pagination, empty state, loading skeleton. Every destructive/financial action: confirmation dialog with reason field (feeds audit log).
 - Currency shown as ₦ with thousands separators; foreign currency shown with code and stored FX rate.
 - Notifications: `notifications` table filled by daily `pg_cron` job (`generate_alerts()`), shown in a bell + Notifications page.

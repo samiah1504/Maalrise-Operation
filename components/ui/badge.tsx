@@ -7,14 +7,17 @@ const badgeVariants = cva(
   'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap transition-colors',
   {
     variants: {
+      // A badge is small text on a soft wash of its own colour, so each tone
+      // uses its `-strong` step for the label rather than the fill colour —
+      // every combination clears WCAG AA (4.5:1) in both light and dark.
       tone: {
         neutral: 'border-transparent bg-muted text-muted-foreground',
-        info: 'border-transparent bg-primary-muted text-primary',
-        progress: 'border-transparent bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200',
-        success: 'border-transparent bg-success/12 text-success',
-        warning: 'border-transparent bg-warning/15 text-warning',
-        danger: 'border-transparent bg-destructive/12 text-destructive',
-        gold: 'border-transparent bg-gold-muted text-gold',
+        info: 'border-transparent bg-primary-muted text-primary-strong',
+        progress: 'border-transparent bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-200',
+        success: 'border-transparent bg-success/12 text-success-strong',
+        warning: 'border-transparent bg-warning/15 text-warning-strong',
+        danger: 'border-transparent bg-destructive/12 text-destructive-strong',
+        gold: 'border-transparent bg-gold-muted text-gold-strong',
         outline: 'border-border text-foreground',
       },
     },

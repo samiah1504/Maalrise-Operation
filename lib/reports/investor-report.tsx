@@ -12,33 +12,33 @@ import { formatNaira } from '@/lib/money'
  * provisional until the 12-month cycle closes.
  */
 const styles = StyleSheet.create({
-  page: { paddingTop: 40, paddingBottom: 56, paddingHorizontal: 44, fontSize: 10, color: '#1a2b24' },
+  page: { paddingTop: 40, paddingBottom: 56, paddingHorizontal: 44, fontSize: 10, color: '#1f1529' },
 
-  header: { borderBottomWidth: 3, borderBottomColor: '#0f4c37', paddingBottom: 12, marginBottom: 18 },
+  header: { borderBottomWidth: 3, borderBottomColor: '#4f2574', paddingBottom: 12, marginBottom: 18 },
   brandRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  brand: { fontSize: 22, fontWeight: 'bold', color: '#0f4c37' },
-  platform: { fontSize: 9, color: '#5b6b64', marginTop: 3 },
+  brand: { fontSize: 22, fontWeight: 'bold', color: '#4f2574' },
+  platform: { fontSize: 9, color: '#6b6478', marginTop: 3 },
   reportLabel: { fontSize: 11, fontWeight: 'bold', color: '#b58a2b', textAlign: 'right' },
-  period: { fontSize: 9, color: '#5b6b64', textAlign: 'right', marginTop: 3 },
+  period: { fontSize: 9, color: '#6b6478', textAlign: 'right', marginTop: 3 },
 
   monthBanner: {
-    backgroundColor: '#0f4c37',
+    backgroundColor: '#4f2574',
     borderRadius: 6,
     paddingVertical: 12,
     paddingHorizontal: 16,
     marginBottom: 20,
   },
   monthTitle: { fontSize: 15, fontWeight: 'bold', color: '#ffffff' },
-  monthMeta: { fontSize: 9, color: '#cfe0d8', marginTop: 4 },
+  monthMeta: { fontSize: 9, color: '#d9cdea', marginTop: 4 },
 
   sectionTitle: {
     fontSize: 11,
     fontWeight: 'bold',
-    color: '#0f4c37',
+    color: '#4f2574',
     marginBottom: 8,
     paddingBottom: 4,
     borderBottomWidth: 1,
-    borderBottomColor: '#e3e0d6',
+    borderBottomColor: '#e7e3ee',
   },
   section: { marginBottom: 18 },
 
@@ -47,9 +47,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 5,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#eeece4',
+    borderBottomColor: '#efebf5',
   },
-  lineLabel: { fontSize: 10, color: '#3d4a44' },
+  lineLabel: { fontSize: 10, color: '#453d52' },
   lineValue: { fontSize: 10, fontWeight: 'bold' },
 
   totalLine: {
@@ -58,10 +58,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginTop: 4,
     borderTopWidth: 1.5,
-    borderTopColor: '#0f4c37',
+    borderTopColor: '#4f2574',
   },
   totalLabel: { fontSize: 11, fontWeight: 'bold' },
-  totalValue: { fontSize: 12, fontWeight: 'bold', color: '#0f4c37' },
+  totalValue: { fontSize: 12, fontWeight: 'bold', color: '#4f2574' },
 
   resultBox: {
     borderRadius: 6,
@@ -71,31 +71,31 @@ const styles = StyleSheet.create({
   },
   resultProfit: { backgroundColor: '#eaf5ef', borderWidth: 1, borderColor: '#1baf7a' },
   resultLoss: { backgroundColor: '#fdeeed', borderWidth: 1, borderColor: '#c8352f' },
-  resultLabel: { fontSize: 10, color: '#3d4a44' },
+  resultLabel: { fontSize: 10, color: '#453d52' },
   resultAmount: { fontSize: 20, fontWeight: 'bold', marginTop: 6 },
-  resultCaption: { fontSize: 9, color: '#5b6b64', marginTop: 6, textAlign: 'center' },
+  resultCaption: { fontSize: 9, color: '#6b6478', marginTop: 6, textAlign: 'center' },
 
   update: {
-    backgroundColor: '#f6f4ec',
+    backgroundColor: '#f5f1f9',
     borderLeftWidth: 3,
     borderLeftColor: '#b58a2b',
     padding: 12,
     fontSize: 9.5,
     lineHeight: 1.6,
-    color: '#3d4a44',
+    color: '#453d52',
   },
 
   disclaimer: {
     marginTop: 10,
     padding: 12,
     borderWidth: 0.5,
-    borderColor: '#d8d4c6',
+    borderColor: '#ded8e8',
     borderRadius: 4,
     fontSize: 8,
     lineHeight: 1.5,
-    color: '#5b6b64',
+    color: '#6b6478',
   },
-  disclaimerTitle: { fontSize: 8, fontWeight: 'bold', color: '#3d4a44', marginBottom: 4 },
+  disclaimerTitle: { fontSize: 8, fontWeight: 'bold', color: '#453d52', marginBottom: 4 },
 
   footer: {
     position: 'absolute',
@@ -105,10 +105,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     borderTopWidth: 0.5,
-    borderTopColor: '#e3e0d6',
+    borderTopColor: '#e7e3ee',
     paddingTop: 6,
     fontSize: 7.5,
-    color: '#5b6b64',
+    color: '#6b6478',
   },
 })
 

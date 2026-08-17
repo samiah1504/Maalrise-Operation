@@ -16,8 +16,8 @@ flowchart LR
   G --> H["Repayment received<br/>repayments"]
   H --> A
 
-  classDef cash fill:#e6f0eb,stroke:#0f4c37,color:#0f4c37
-  classDef stock fill:#f7f1e0,stroke:#b58a2b,color:#5c4712
+  classDef cash fill:#efe8f6,stroke:#4f2574,color:#4f2574
+  classDef stock fill:#f8f1de,stroke:#b58a2b,color:#5c4712
   class A,H cash
   class B,C,D,E,F,G stock
 ```

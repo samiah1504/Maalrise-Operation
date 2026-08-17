@@ -4,32 +4,32 @@
 
 @layer base {
   :root {
-    /* Cream surfaces, deep green primary, gold accent */
-    --background: 45 33% 97%;
-    --foreground: 155 30% 12%;
+    /* Royal purple primary, gold accent, soft off-white surfaces */
+    --background: 280 25% 98%;
+    --foreground: 275 30% 14%;
 
     --card: 0 0% 100%;
-    --card-foreground: 155 30% 12%;
+    --card-foreground: 275 30% 14%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 155 30% 12%;
+    --popover-foreground: 275 30% 14%;
 
-    --primary: 158 64% 17%;
-    --primary-foreground: 45 40% 97%;
-    --primary-muted: 158 30% 92%;
+    --primary: 272 52% 30%;
+    --primary-foreground: 280 40% 98%;
+    --primary-muted: 272 40% 94%;
 
-    --gold: 42 62% 47%;
-    --gold-foreground: 40 40% 12%;
-    --gold-muted: 42 60% 94%;
+    --gold: 42 62% 44%;
+    --gold-foreground: 40 45% 12%;
+    --gold-muted: 42 58% 93%;
 
-    --secondary: 45 25% 93%;
-    --secondary-foreground: 155 30% 18%;
+    --secondary: 280 20% 94%;
+    --secondary-foreground: 275 30% 20%;
 
-    --muted: 45 20% 94%;
-    --muted-foreground: 155 10% 42%;
+    --muted: 280 16% 95%;
+    --muted-foreground: 275 10% 42%;
 
-    --accent: 158 30% 94%;
-    --accent-foreground: 158 64% 17%;
+    --accent: 272 35% 95%;
+    --accent-foreground: 272 52% 30%;
 
     --destructive: 0 68% 45%;
     --destructive-foreground: 0 0% 100%;
@@ -37,55 +37,73 @@
     --success: 152 55% 32%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 32 85% 44%;
+    --warning: 32 85% 42%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 45 18% 87%;
-    --input: 45 18% 87%;
-    --ring: 158 64% 25%;
+    --border: 280 16% 89%;
+    --input: 280 16% 89%;
+    --ring: 272 52% 42%;
+
+    /*
+     * Text steps for the tinted status badges. A badge is small text on a soft
+     * wash of its own colour, so the fill colour above is too light to read
+     * against it — these are stepped until every tone clears WCAG AA (4.5:1).
+     */
+    --primary-strong: 272 52% 30%;
+    --gold-strong: 42 62% 32%;
+    --success-strong: 152 55% 30%;
+    --warning-strong: 32 85% 33%;
+    --destructive-strong: 0 68% 45%;
 
     --radius: 0.65rem;
   }
 
   .dark {
-    --background: 158 30% 7%;
-    --foreground: 45 25% 94%;
+    --background: 275 28% 8%;
+    --foreground: 280 20% 95%;
 
-    --card: 158 26% 10%;
-    --card-foreground: 45 25% 94%;
+    --card: 275 24% 11%;
+    --card-foreground: 280 20% 95%;
 
-    --popover: 158 26% 10%;
-    --popover-foreground: 45 25% 94%;
+    --popover: 275 24% 11%;
+    --popover-foreground: 280 20% 95%;
 
-    --primary: 158 45% 42%;
-    --primary-foreground: 158 40% 6%;
-    --primary-muted: 158 30% 16%;
+    --primary: 272 48% 62%;
+    --primary-foreground: 275 40% 9%;
+    --primary-muted: 272 28% 21%;
 
-    --gold: 42 70% 55%;
-    --gold-foreground: 40 40% 10%;
-    --gold-muted: 42 30% 18%;
+    --gold: 42 62% 55%;
+    --gold-foreground: 40 45% 10%;
+    --gold-muted: 42 28% 20%;
 
-    --secondary: 158 20% 16%;
-    --secondary-foreground: 45 25% 94%;
+    --secondary: 275 18% 18%;
+    --secondary-foreground: 280 20% 95%;
 
-    --muted: 158 18% 15%;
-    --muted-foreground: 155 10% 65%;
+    --muted: 275 16% 17%;
+    --muted-foreground: 275 10% 66%;
 
-    --accent: 158 22% 18%;
-    --accent-foreground: 45 25% 94%;
+    --accent: 275 20% 20%;
+    --accent-foreground: 280 20% 95%;
 
-    --destructive: 0 62% 50%;
+    --destructive: 0 62% 52%;
     --destructive-foreground: 0 0% 100%;
 
     --success: 152 45% 45%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 32 75% 52%;
+    --warning: 32 75% 54%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 158 18% 20%;
-    --input: 158 18% 20%;
-    --ring: 158 45% 45%;
+    --border: 275 16% 22%;
+    --input: 275 16% 22%;
+    --ring: 272 48% 62%;
+
+    /* Stepped the other way: lighter text on a dark wash. */
+    --primary-strong: 272 48% 68%;
+    --gold-strong: 42 62% 55%;
+    --success-strong: 152 45% 45%;
+    --warning-strong: 32 75% 54%;
+    --destructive-strong: 0 62% 63%;
   }
 
   * {
