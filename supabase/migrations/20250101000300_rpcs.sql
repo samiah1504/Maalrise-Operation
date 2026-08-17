@@ -1,0 +1,1217 @@
+-- =============================================================================
+-- Migration 0004 — Financial RPCs
+-- Every financial state change happens here, inside one transaction. The UI
+-- never writes to two financial tables itself.
+-- =============================================================================
+
+-- ---------------------------------------------------------------------------
+-- Internal helpers
+-- ---------------------------------------------------------------------------
+create or replace function set_audit_reason(p_reason text)
+returns void
+language plpgsql
+as $$
+begin
+  perform set_config('app.audit_reason', coalesce(p_reason, ''), true);
+end;
+$$;
+
+-- Records an approval decision, enforcing maker <> checker.
+create or replace function record_approval(
+  p_type approval_type,
+  p_table text,
+  p_record uuid,
+  p_title text,
+  p_amount numeric,
+  p_requested_by uuid,
+  p_reason text
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id uuid;
+begin
+  if p_requested_by is not null and p_requested_by = auth.uid() then
+    raise exception 'The person who created this record may not approve it (maker-checker control).'
+      using errcode = 'check_violation';
+  end if;
+
+  insert into approvals (approval_type, record_table, record_id, title, amount,
+                         requested_by, status, approver_id, decided_at, reason)
+  values (p_type, p_table, p_record, p_title, p_amount,
+          p_requested_by, 'approved', auth.uid(), now(), p_reason)
+  returning id into v_id;
+
+  return v_id;
+end;
+$$;
+
+-- Posts one cashbook line. All cash movement flows through here.
+create or replace function post_cash_transaction(
+  p_bank_account_id uuid,
+  p_cycle uuid,
+  p_date date,
+  p_direction cash_direction,
+  p_amount numeric,
+  p_category cash_category,
+  p_description text,
+  p_reference_table text,
+  p_reference_id uuid,
+  p_procurement_order_id uuid default null,
+  p_murabaha_sale_id uuid default null,
+  p_payment_reference text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id uuid;
+begin
+  perform assert_period_open(p_cycle, p_date);
+
+  insert into cash_transactions (
+    bank_account_id, investment_cycle_id, transaction_date, direction, amount,
+    category, description, reference_table, reference_id,
+    procurement_order_id, murabaha_sale_id, payment_reference, created_by
+  ) values (
+    p_bank_account_id, p_cycle, p_date, p_direction, p_amount,
+    p_category, p_description, p_reference_table, p_reference_id,
+    p_procurement_order_id, p_murabaha_sale_id, p_payment_reference, auth.uid()
+  )
+  returning id into v_id;
+
+  return v_id;
+end;
+$$;
+
+create or replace function account_balance(p_account uuid)
+returns numeric
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(ba.opening_balance, 0)
+       + coalesce((
+           select sum(case when ct.direction = 'inflow' then ct.amount else -ct.amount end)
+           from cash_transactions ct
+           where ct.bank_account_id = p_account
+         ), 0)
+  from bank_accounts ba
+  where ba.id = p_account;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Investor capital (brief §7, TASKS phase 3)
+-- ---------------------------------------------------------------------------
+create or replace function record_investor_capital(
+  p_subscription_id uuid,
+  p_bank_account_id uuid,
+  p_payment_date date,
+  p_payment_reference text default null,
+  p_reason text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_sub investor_subscriptions;
+  v_cash uuid;
+begin
+  if not has_role('ceo', 'accounts') then
+    raise exception 'Only the CEO or an Accounts Officer may record investor capital.';
+  end if;
+
+  perform set_audit_reason(p_reason);
+
+  select * into v_sub from investor_subscriptions where id = p_subscription_id for update;
+  if not found then
+    raise exception 'Subscription not found';
+  end if;
+  if v_sub.capital_recorded then
+    raise exception 'Capital for this subscription has already been recorded.';
+  end if;
+
+  v_cash := post_cash_transaction(
+    p_bank_account_id, v_sub.investment_cycle_id, coalesce(p_payment_date, current_date),
+    'inflow', v_sub.total_amount, 'investor_capital',
+    'Investor capital received', 'investor_subscriptions', v_sub.id,
+    null, null, p_payment_reference
+  );
+
+  update investor_subscriptions
+     set capital_recorded = true,
+         status = 'active',
+         payment_date = coalesce(p_payment_date, payment_date, current_date),
+         payment_reference = coalesce(p_payment_reference, payment_reference)
+   where id = p_subscription_id;
+
+  update investors set status = 'active'
+   where id = v_sub.investor_id and status = 'pending_confirmation';
+
+  return v_cash;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Procurement approval (brief §10)
+-- ---------------------------------------------------------------------------
+create or replace function approve_procurement(p_id uuid, p_reason text default null)
+returns procurement_orders
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_po procurement_orders;
+begin
+  if not has_role('ceo', 'accounts') then
+    raise exception 'Only the CEO or an Accounts Officer may approve a procurement order.';
+  end if;
+
+  perform set_audit_reason(p_reason);
+
+  select * into v_po from procurement_orders where id = p_id for update;
+  if not found then
+    raise exception 'Procurement order not found';
+  end if;
+
+  if v_po.status not in ('draft', 'awaiting_approval') then
+    raise exception 'Procurement % is % and can no longer be approved.', v_po.batch_number, v_po.status;
+  end if;
+
+  if not exists (select 1 from procurement_items where procurement_order_id = p_id) then
+    raise exception 'Add at least one product before approving this procurement order.';
+  end if;
+
+  perform record_approval('procurement_order', 'procurement_orders', p_id,
+    'Procurement ' || v_po.batch_number, v_po.total_cost_naira, v_po.created_by, p_reason);
+
+  update procurement_orders
+     set status = 'approved', approved_by = auth.uid(), approved_at = now()
+   where id = p_id
+  returning * into v_po;
+
+  return v_po;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Supplier payment: Cash at Hand down, Cash in Stock up by the same amount.
+-- ---------------------------------------------------------------------------
+create or replace function record_supplier_payment(
+  p_procurement_id uuid,
+  p_amount_foreign numeric,
+  p_exchange_rate numeric,
+  p_bank_account_id uuid,
+  p_payment_date date default current_date,
+  p_payment_reference text default null,
+  p_notes text default null,
+  p_reason text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_po procurement_orders;
+  v_naira numeric(18, 2);
+  v_cash uuid;
+  v_payment uuid;
+  v_paid numeric(18, 2);
+begin
+  if not has_role('ceo', 'accounts') then
+    raise exception 'Only the CEO or an Accounts Officer may record supplier payments.';
+  end if;
+  if p_amount_foreign is null or p_amount_foreign <= 0 then
+    raise exception 'Payment amount must be greater than zero.';
+  end if;
+  if p_exchange_rate is null or p_exchange_rate <= 0 then
+    raise exception 'A valid exchange rate is required.';
+  end if;
+
+  perform set_audit_reason(p_reason);
+
+  select * into v_po from procurement_orders where id = p_procurement_id for update;
+  if not found then
+    raise exception 'Procurement order not found';
+  end if;
+  if v_po.status in ('draft', 'awaiting_approval', 'cancelled') then
+    raise exception 'Procurement % must be approved before a supplier payment can be recorded.', v_po.batch_number;
+  end if;
+
+  -- FX is captured on the payment and the Naira value stored once, never
+  -- recomputed from a later rate.
+  v_naira := round(p_amount_foreign * p_exchange_rate, 2);
+
+  v_cash := post_cash_transaction(
+    p_bank_account_id, v_po.investment_cycle_id, coalesce(p_payment_date, current_date),
+    'outflow', v_naira, 'supplier_payment',
+    'Supplier payment for ' || v_po.batch_number, 'supplier_payments', null,
+    v_po.id, null, p_payment_reference
+  );
+
+  insert into supplier_payments (
+    procurement_order_id, investment_cycle_id, payment_date, currency,
+    amount_foreign, exchange_rate, amount_naira, bank_account_id,
+    payment_reference, cash_transaction_id, notes, created_by
+  ) values (
+    p_procurement_id, v_po.investment_cycle_id, coalesce(p_payment_date, current_date), v_po.currency,
+    p_amount_foreign, p_exchange_rate, v_naira, p_bank_account_id,
+    p_payment_reference, v_cash, p_notes, auth.uid()
+  )
+  returning id into v_payment;
+
+  update cash_transactions set reference_id = v_payment where id = v_cash;
+
+  select coalesce(sum(amount_naira), 0) into v_paid
+  from supplier_payments where procurement_order_id = p_procurement_id;
+
+  update procurement_orders
+     set amount_paid_naira = v_paid,
+         status = case
+           when v_paid >= total_cost_naira and status in ('approved', 'supplier_payment_pending', 'partially_paid')
+             then 'fully_paid'::procurement_status
+           when v_paid > 0 and status in ('approved', 'supplier_payment_pending')
+             then 'partially_paid'::procurement_status
+           else status
+         end
+   where id = p_procurement_id;
+
+  return v_payment;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Direct procurement cost line (freight, customs, clearing …). Capitalised
+-- into landed cost, and posted as a cash outflow at the same time.
+-- ---------------------------------------------------------------------------
+create or replace function record_procurement_cost(
+  p_procurement_id uuid,
+  p_cost_type procurement_cost_type,
+  p_amount_naira numeric,
+  p_incurred_date date default current_date,
+  p_description text default null,
+  p_shipment_id uuid default null,
+  p_bank_account_id uuid default null,
+  p_payment_reference text default null,
+  p_reason text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_po procurement_orders;
+  v_cash uuid;
+  v_cost uuid;
+begin
+  if not can_write() then
+    raise exception 'You do not have permission to record procurement costs.';
+  end if;
+  if p_amount_naira is null or p_amount_naira <= 0 then
+    raise exception 'Cost amount must be greater than zero.';
+  end if;
+
+  perform set_audit_reason(p_reason);
+
+  select * into v_po from procurement_orders where id = p_procurement_id for update;
+  if not found then
+    raise exception 'Procurement order not found';
+  end if;
+  if v_po.landed_cost_finalised then
+    raise exception 'Landed cost for % is finalised; no further cost lines may be added.', v_po.batch_number;
+  end if;
+
+  if p_bank_account_id is not null then
+    v_cash := post_cash_transaction(
+      p_bank_account_id, v_po.investment_cycle_id, coalesce(p_incurred_date, current_date),
+      'outflow', p_amount_naira,
+      case p_cost_type
+        when 'international_shipping' then 'shipping'::cash_category
+        when 'freight' then 'shipping'::cash_category
+        when 'customs' then 'customs'::cash_category
+        when 'clearing' then 'clearing'::cash_category
+        when 'port_charges' then 'clearing'::cash_category
+        when 'local_transport' then 'local_transport'::cash_category
+        when 'bank_charges' then 'bank_charges'::cash_category
+        else 'other_expense'::cash_category
+      end,
+      coalesce(p_description, replace(p_cost_type::text, '_', ' ')) || ' — ' || v_po.batch_number,
+      'shipment_costs', null, v_po.id, null, p_payment_reference
+    );
+  end if;
+
+  insert into shipment_costs (
+    procurement_order_id, shipment_id, investment_cycle_id, cost_type, description,
+    amount_naira, incurred_date, bank_account_id, cash_transaction_id,
+    payment_reference, created_by
+  ) values (
+    p_procurement_id, p_shipment_id, v_po.investment_cycle_id, p_cost_type, p_description,
+    p_amount_naira, coalesce(p_incurred_date, current_date), p_bank_account_id, v_cash,
+    p_payment_reference, auth.uid()
+  )
+  returning id into v_cost;
+
+  if v_cash is not null then
+    update cash_transactions set reference_id = v_cost where id = v_cash;
+  end if;
+
+  perform allocate_procurement_costs(p_procurement_id);
+
+  return v_cost;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Landed-cost allocation engine (brief §11).
+-- Allocation totals equal cost totals to the kobo for every method: the
+-- rounding remainder is assigned to the largest-basis line.
+-- ---------------------------------------------------------------------------
+create or replace function allocate_procurement_costs(p_procurement_id uuid)
+returns numeric
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_po procurement_orders;
+  v_total_costs numeric(18, 2);
+  v_basis_total numeric;
+  v_running numeric(18, 2) := 0;
+  v_item record;
+  v_basis numeric;
+  v_share numeric(18, 2);
+  v_last_id uuid;
+begin
+  select * into v_po from procurement_orders where id = p_procurement_id;
+  if not found then
+    raise exception 'Procurement order not found';
+  end if;
+
+  select coalesce(sum(amount_naira), 0) into v_total_costs
+  from shipment_costs where procurement_order_id = p_procurement_id;
+
+  -- Basis total for the chosen method.
+  select coalesce(sum(
+    case v_po.allocation_method
+      when 'quantity' then pi.quantity
+      when 'weight'   then pi.quantity * coalesce(p.weight_kg, 0)
+      when 'volume'   then pi.quantity * coalesce(p.volume_cbm, 0)
+      when 'value'    then pi.line_total_naira
+      when 'manual'   then coalesce(pi.manual_allocation, 0)
+    end
+  ), 0)
+  into v_basis_total
+  from procurement_items pi
+  join products p on p.id = pi.product_id
+  where pi.procurement_order_id = p_procurement_id;
+
+  -- A zero basis (e.g. weights not captured) falls back to quantity so that
+  -- costs are never silently dropped.
+  if v_basis_total = 0 then
+    select coalesce(sum(quantity), 0) into v_basis_total
+    from procurement_items where procurement_order_id = p_procurement_id;
+  end if;
+
+  select pi.id into v_last_id
+  from procurement_items pi
+  where pi.procurement_order_id = p_procurement_id
+  order by pi.line_total_naira desc, pi.id
+  limit 1;
+
+  for v_item in
+    select pi.id, pi.quantity, pi.line_total_naira, pi.manual_allocation,
+           p.weight_kg, p.volume_cbm
+    from procurement_items pi
+    join products p on p.id = pi.product_id
+    where pi.procurement_order_id = p_procurement_id
+    order by pi.line_total_naira desc, pi.id
+  loop
+    v_basis := case v_po.allocation_method
+      when 'quantity' then v_item.quantity
+      when 'weight'   then v_item.quantity * coalesce(v_item.weight_kg, 0)
+      when 'volume'   then v_item.quantity * coalesce(v_item.volume_cbm, 0)
+      when 'value'    then v_item.line_total_naira
+      when 'manual'   then coalesce(v_item.manual_allocation, 0)
+    end;
+
+    if v_basis is null or v_basis = 0 then
+      v_basis := case when v_basis_total = 0 then 0 else v_item.quantity end;
+    end if;
+
+    if v_basis_total = 0 then
+      v_share := 0;
+    else
+      v_share := round(v_total_costs * (v_basis / v_basis_total), 2);
+    end if;
+
+    v_running := v_running + v_share;
+
+    update procurement_items set allocated_cost_naira = v_share where id = v_item.id;
+  end loop;
+
+  -- Push any rounding difference onto the largest line so the allocation
+  -- reconciles exactly with the cost total.
+  if v_last_id is not null and v_running <> v_total_costs then
+    update procurement_items
+       set allocated_cost_naira = allocated_cost_naira + (v_total_costs - v_running)
+     where id = v_last_id;
+  end if;
+
+  -- The unit landed cost is the figure inventory is valued at, so it is the
+  -- authoritative number: the line total is quantity × unit cost, not the
+  -- other way round. Any sub-naira residual between the money spent and the
+  -- value capitalised is reported as a cost variance by v_batch_position and
+  -- recognised in the P&L once the batch is received — it is never left to
+  -- drift silently into the asset figures.
+  update procurement_items
+     set landed_cost_per_unit = case when quantity > 0
+                                     then round((line_total_naira + allocated_cost_naira) / quantity, 2)
+                                     else 0 end
+   where procurement_order_id = p_procurement_id;
+
+  update procurement_items
+     set landed_cost_total = round(quantity * landed_cost_per_unit, 2)
+   where procurement_order_id = p_procurement_id;
+
+  update procurement_orders
+     set allocated_costs_naira = v_total_costs
+   where id = p_procurement_id;
+
+  return v_total_costs;
+end;
+$$;
+
+create or replace function finalise_landed_cost(p_procurement_id uuid, p_reason text default null)
+returns procurement_orders
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_po procurement_orders;
+begin
+  if not has_role('ceo', 'accounts') then
+    raise exception 'Only the CEO or an Accounts Officer may finalise landed cost.';
+  end if;
+
+  perform set_audit_reason(p_reason);
+
+  select * into v_po from procurement_orders where id = p_procurement_id for update;
+  if not found then
+    raise exception 'Procurement order not found';
+  end if;
+  if v_po.landed_cost_finalised then
+    raise exception 'Landed cost for % is already finalised.', v_po.batch_number;
+  end if;
+
+  perform allocate_procurement_costs(p_procurement_id);
+
+  perform record_approval('landed_cost', 'procurement_orders', p_procurement_id,
+    'Landed cost — ' || v_po.batch_number,
+    v_po.total_cost_naira + v_po.allocated_costs_naira, v_po.created_by, p_reason);
+
+  update procurement_orders
+     set landed_cost_finalised = true,
+         landed_cost_finalised_at = now(),
+         landed_cost_finalised_by = auth.uid()
+   where id = p_procurement_id
+  returning * into v_po;
+
+  return v_po;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Goods receipt: value moves from Cash in Stock into Inventory (brief §13).
+-- ---------------------------------------------------------------------------
+create or replace function confirm_goods_receipt(p_goods_receipt_id uuid, p_reason text default null)
+returns goods_receipts
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_grn goods_receipts;
+  v_po procurement_orders;
+  v_item record;
+  v_lot uuid;
+  v_unit_cost numeric(18, 2);
+  v_expected numeric(18, 3);
+  v_received_total numeric(18, 3);
+  v_fully boolean;
+begin
+  if not can_write() then
+    raise exception 'You do not have permission to confirm a goods receipt.';
+  end if;
+
+  perform set_audit_reason(p_reason);
+
+  select * into v_grn from goods_receipts where id = p_goods_receipt_id for update;
+  if not found then
+    raise exception 'Goods receipt not found';
+  end if;
+  if v_grn.status in ('fully_received', 'closed') then
+    raise exception 'Goods receipt % has already been confirmed.', v_grn.grn_number;
+  end if;
+
+  select * into v_po from procurement_orders where id = v_grn.procurement_order_id for update;
+
+  perform assert_period_open(v_grn.investment_cycle_id, v_grn.received_date);
+
+  -- Landed cost must be settled before goods can be valued into inventory.
+  if not v_po.landed_cost_finalised then
+    perform allocate_procurement_costs(v_po.id);
+  end if;
+
+  for v_item in
+    select gri.*, pi.landed_cost_per_unit, pi.quantity as ordered_quantity
+    from goods_receipt_items gri
+    join procurement_items pi on pi.id = gri.procurement_item_id
+    where gri.goods_receipt_id = p_goods_receipt_id
+  loop
+    if v_item.sellable_quantity <= 0 then
+      continue;
+    end if;
+
+    v_unit_cost := coalesce(v_item.landed_cost_per_unit, 0);
+
+    insert into inventory_lots (
+      product_id, procurement_order_id, goods_receipt_id, warehouse_id,
+      investment_cycle_id, received_date, quantity_received, quantity_available,
+      unit_landed_cost, created_by
+    ) values (
+      v_item.product_id, v_grn.procurement_order_id, v_grn.id, v_grn.warehouse_id,
+      v_grn.investment_cycle_id, v_grn.received_date, v_item.sellable_quantity,
+      v_item.sellable_quantity, v_unit_cost, auth.uid()
+    )
+    returning id into v_lot;
+
+    insert into inventory_movements (
+      inventory_lot_id, movement_type, quantity, unit_cost, total_value,
+      reference_table, reference_id, reason, created_by
+    ) values (
+      v_lot, 'receipt', v_item.sellable_quantity, v_unit_cost,
+      round(v_item.sellable_quantity * v_unit_cost, 2),
+      'goods_receipts', v_grn.id, coalesce(p_reason, 'Goods received into warehouse'), auth.uid()
+    );
+
+    update procurement_items
+       set quantity_received = quantity_received + v_item.quantity_received
+     where id = v_item.procurement_item_id;
+  end loop;
+
+  -- Fully received when every ordered line has been received in full.
+  select coalesce(sum(quantity), 0), coalesce(sum(quantity_received), 0)
+    into v_expected, v_received_total
+  from procurement_items where procurement_order_id = v_po.id;
+
+  v_fully := v_received_total >= v_expected;
+
+  update goods_receipts
+     set status = case when v_fully then 'fully_received'::goods_receipt_status
+                       else 'partially_received'::goods_receipt_status end,
+         confirmed_at = now(),
+         confirmed_by = auth.uid()
+   where id = p_goods_receipt_id
+  returning * into v_grn;
+
+  update procurement_orders
+     set status = case when v_fully then 'received'::procurement_status
+                       else 'partially_received'::procurement_status end
+   where id = v_po.id;
+
+  insert into notifications (type, severity, title, body, record_table, record_id,
+                             investment_cycle_id, dedupe_key)
+  values ('goods_received', 'info',
+          'Goods received — ' || v_po.batch_number,
+          'Goods receipt ' || v_grn.grn_number || ' has been confirmed into inventory.',
+          'goods_receipts', v_grn.id, v_grn.investment_cycle_id,
+          'grn-confirmed-' || v_grn.id::text)
+  on conflict (dedupe_key) do nothing;
+
+  return v_grn;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Inventory write-off (approval required)
+-- ---------------------------------------------------------------------------
+create or replace function write_off_inventory(
+  p_lot_id uuid,
+  p_quantity numeric,
+  p_movement_type inventory_movement_type,
+  p_reason text
+)
+returns inventory_lots
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_lot inventory_lots;
+begin
+  if not has_role('ceo', 'accounts') then
+    raise exception 'Only the CEO or an Accounts Officer may write off inventory.';
+  end if;
+  if p_reason is null or length(trim(p_reason)) < 3 then
+    raise exception 'A reason is required for an inventory write-off.';
+  end if;
+  if p_movement_type not in ('write_off', 'damage', 'loss') then
+    raise exception 'Invalid write-off movement type.';
+  end if;
+
+  perform set_audit_reason(p_reason);
+
+  select * into v_lot from inventory_lots where id = p_lot_id for update;
+  if not found then
+    raise exception 'Inventory lot not found';
+  end if;
+  if p_quantity <= 0 or p_quantity > v_lot.quantity_available then
+    raise exception 'Cannot write off % units; only % available.', p_quantity, v_lot.quantity_available;
+  end if;
+
+  perform record_approval('inventory_write_off', 'inventory_lots', p_lot_id,
+    'Inventory write-off', round(p_quantity * v_lot.unit_landed_cost, 2), v_lot.created_by, p_reason);
+
+  update inventory_lots
+     set quantity_available = quantity_available - p_quantity,
+         quantity_damaged = quantity_damaged + case when p_movement_type = 'damage' then p_quantity else 0 end,
+         quantity_lost = quantity_lost + case when p_movement_type in ('loss', 'write_off') then p_quantity else 0 end
+   where id = p_lot_id
+  returning * into v_lot;
+
+  insert into inventory_movements (
+    inventory_lot_id, movement_type, quantity, unit_cost, total_value,
+    reference_table, reference_id, reason, created_by
+  ) values (
+    p_lot_id, p_movement_type, -p_quantity, v_lot.unit_landed_cost,
+    round(-p_quantity * v_lot.unit_landed_cost, 2), 'inventory_lots', p_lot_id, p_reason, auth.uid()
+  );
+
+  return v_lot;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Murabaha sale (brief §15)
+-- Creating the sale reserves stock; approving it freezes the price, releases
+-- the goods, creates the receivable and posts revenue + COGS.
+-- ---------------------------------------------------------------------------
+create or replace function create_murabaha_sale(
+  p_business_id uuid,
+  p_cycle_id uuid,
+  p_sale_date date,
+  p_markup_rate numeric,
+  p_repayment_period_days integer,
+  p_items jsonb,
+  p_notes text default null,
+  p_reason text default null
+)
+returns murabaha_sales
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_sale murabaha_sales;
+  v_item jsonb;
+  v_lot inventory_lots;
+  v_qty numeric(18, 3);
+  v_total_cost numeric(18, 2) := 0;
+  v_line_cost numeric(18, 2);
+  v_markup numeric(18, 2);
+  v_price numeric(18, 2);
+  v_po uuid;
+begin
+  if not can_write() then
+    raise exception 'You do not have permission to create a Murabaha sale.';
+  end if;
+  if jsonb_array_length(coalesce(p_items, '[]'::jsonb)) = 0 then
+    raise exception 'Select at least one inventory lot to sell.';
+  end if;
+  if p_markup_rate is null or p_markup_rate < 0 then
+    raise exception 'Markup must be zero or greater.';
+  end if;
+
+  perform set_audit_reason(p_reason);
+  perform assert_period_open(p_cycle_id, coalesce(p_sale_date, current_date));
+
+  insert into murabaha_sales (
+    business_id, investment_cycle_id, sale_date, markup_rate,
+    repayment_period_days, due_date, status, notes, created_by
+  ) values (
+    p_business_id, p_cycle_id, coalesce(p_sale_date, current_date), p_markup_rate,
+    coalesce(p_repayment_period_days, 45),
+    coalesce(p_sale_date, current_date) + coalesce(p_repayment_period_days, 45),
+    'draft', p_notes, auth.uid()
+  )
+  returning * into v_sale;
+
+  for v_item in select * from jsonb_array_elements(p_items)
+  loop
+    v_qty := (v_item ->> 'quantity')::numeric;
+
+    select * into v_lot from inventory_lots
+     where id = (v_item ->> 'inventory_lot_id')::uuid for update;
+    if not found then
+      raise exception 'Inventory lot not found';
+    end if;
+    if v_qty <= 0 or v_qty > v_lot.quantity_available then
+      raise exception 'Only % unit(s) available in the selected lot; % requested.',
+        v_lot.quantity_available, v_qty;
+    end if;
+
+    -- Goods must be owned by MaalRise before they can be sold (brief §29.4).
+    if not exists (
+      select 1 from procurement_orders
+      where id = v_lot.procurement_order_id and landed_cost_finalised
+    ) then
+      raise exception 'Landed cost for the source procurement batch must be finalised before sale.';
+    end if;
+
+    v_line_cost := round(v_qty * v_lot.unit_landed_cost, 2);
+    v_total_cost := v_total_cost + v_line_cost;
+    v_po := coalesce(v_po, v_lot.procurement_order_id);
+
+    insert into murabaha_sale_items (
+      murabaha_sale_id, inventory_lot_id, product_id, quantity,
+      unit_cost, total_cost
+    ) values (
+      v_sale.id, v_lot.id, v_lot.product_id, v_qty, v_lot.unit_landed_cost, v_line_cost
+    );
+
+    update inventory_lots
+       set quantity_available = quantity_available - v_qty,
+           quantity_reserved  = quantity_reserved + v_qty
+     where id = v_lot.id;
+
+    insert into inventory_movements (
+      inventory_lot_id, movement_type, quantity, unit_cost, total_value,
+      reference_table, reference_id, reason, created_by
+    ) values (
+      v_lot.id, 'reservation', -v_qty, v_lot.unit_landed_cost, round(-v_qty * v_lot.unit_landed_cost, 2),
+      'murabaha_sales', v_sale.id, 'Reserved for Murabaha sale', auth.uid()
+    );
+  end loop;
+
+  v_markup := round(v_total_cost * p_markup_rate, 2);
+  v_price := v_total_cost + v_markup;
+
+  -- Spread the selling price across the lines in proportion to cost.
+  update murabaha_sale_items msi
+     set total_selling_price = round(msi.total_cost * (1 + p_markup_rate), 2),
+         unit_selling_price  = case when msi.quantity > 0
+                                    then round(msi.total_cost * (1 + p_markup_rate) / msi.quantity, 2)
+                                    else 0 end
+   where msi.murabaha_sale_id = v_sale.id;
+
+  update murabaha_sales
+     set total_cost = v_total_cost,
+         markup_amount = v_markup,
+         selling_price = v_price,
+         procurement_order_id = v_po,
+         status = 'awaiting_approval'
+   where id = v_sale.id
+  returning * into v_sale;
+
+  return v_sale;
+end;
+$$;
+
+create or replace function approve_murabaha_sale(p_sale_id uuid, p_reason text default null)
+returns murabaha_sales
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_sale murabaha_sales;
+  v_item record;
+begin
+  if not has_role('ceo', 'accounts') then
+    raise exception 'Only the CEO or an Accounts Officer may approve a Murabaha sale.';
+  end if;
+
+  perform set_audit_reason(p_reason);
+
+  select * into v_sale from murabaha_sales where id = p_sale_id for update;
+  if not found then
+    raise exception 'Murabaha sale not found';
+  end if;
+  if v_sale.status not in ('draft', 'awaiting_approval') then
+    raise exception 'Contract % is % and can no longer be approved.', v_sale.contract_number, v_sale.status;
+  end if;
+
+  perform record_approval('murabaha_sale', 'murabaha_sales', p_sale_id,
+    'Murabaha ' || v_sale.contract_number, v_sale.selling_price, v_sale.created_by, p_reason);
+
+  -- Convert the reservation into a sale: inventory out, receivable in.
+  for v_item in
+    select * from murabaha_sale_items where murabaha_sale_id = p_sale_id
+  loop
+    update inventory_lots
+       set quantity_reserved = quantity_reserved - v_item.quantity,
+           quantity_sold     = quantity_sold + v_item.quantity
+     where id = v_item.inventory_lot_id;
+
+    insert into inventory_movements (
+      inventory_lot_id, movement_type, quantity, unit_cost, total_value,
+      reference_table, reference_id, reason, created_by
+    ) values (
+      v_item.inventory_lot_id, 'sale', -v_item.quantity, v_item.unit_cost,
+      round(-v_item.quantity * v_item.unit_cost, 2),
+      'murabaha_sales', p_sale_id, coalesce(p_reason, 'Sold under Murabaha'), auth.uid()
+    );
+  end loop;
+
+  -- The selling price is fixed from this point. Late payment never increases
+  -- the amount owed (brief §29.5).
+  update murabaha_sales
+     set status = 'active',
+         price_frozen = true,
+         approved_by = auth.uid(),
+         approved_at = now()
+   where id = p_sale_id
+  returning * into v_sale;
+
+  return v_sale;
+end;
+$$;
+
+-- Guard: an approved sale's commercial terms are immutable.
+create or replace function protect_frozen_murabaha()
+returns trigger
+language plpgsql
+as $$
+begin
+  if old.price_frozen and (
+       new.selling_price is distinct from old.selling_price
+    or new.total_cost is distinct from old.total_cost
+    or new.markup_amount is distinct from old.markup_amount
+    or new.markup_rate is distinct from old.markup_rate
+  ) then
+    raise exception 'The Murabaha selling price is fixed once approved and cannot be changed.'
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger trg_murabaha_price_frozen
+before update on murabaha_sales
+for each row execute function protect_frozen_murabaha();
+
+-- ---------------------------------------------------------------------------
+-- Repayments (brief §16). One payment may settle several contracts.
+-- ---------------------------------------------------------------------------
+create or replace function record_repayment(
+  p_business_id uuid,
+  p_amount numeric,
+  p_bank_account_id uuid,
+  p_payment_date date,
+  p_allocations jsonb,
+  p_method text default null,
+  p_payment_reference text default null,
+  p_notes text default null,
+  p_reason text default null
+)
+returns repayments
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_repayment repayments;
+  v_alloc jsonb;
+  v_sale murabaha_sales;
+  v_amount numeric(18, 2);
+  v_sum numeric(18, 2) := 0;
+  v_cycle uuid;
+  v_cash uuid;
+  v_paid numeric(18, 2);
+begin
+  if not has_role('ceo', 'accounts') then
+    raise exception 'Only the CEO or an Accounts Officer may record a repayment.';
+  end if;
+  if p_amount is null or p_amount <= 0 then
+    raise exception 'Repayment amount must be greater than zero.';
+  end if;
+  if jsonb_array_length(coalesce(p_allocations, '[]'::jsonb)) = 0 then
+    raise exception 'Allocate the payment to at least one Murabaha contract.';
+  end if;
+
+  perform set_audit_reason(p_reason);
+
+  -- Validate allocations before writing anything.
+  for v_alloc in select * from jsonb_array_elements(p_allocations)
+  loop
+    v_amount := round((v_alloc ->> 'amount')::numeric, 2);
+    select * into v_sale from murabaha_sales
+     where id = (v_alloc ->> 'murabaha_sale_id')::uuid for update;
+
+    if not found then
+      raise exception 'Murabaha contract not found';
+    end if;
+    if v_sale.business_id <> p_business_id then
+      raise exception 'Contract % does not belong to the selected business.', v_sale.contract_number;
+    end if;
+    if v_sale.status not in ('approved', 'goods_released', 'active', 'partially_paid', 'overdue') then
+      raise exception 'Contract % is % and cannot receive a repayment.', v_sale.contract_number, v_sale.status;
+    end if;
+    if v_amount <= 0 then
+      raise exception 'Allocation amounts must be greater than zero.';
+    end if;
+    if v_amount > (v_sale.selling_price - v_sale.amount_paid) then
+      raise exception 'Allocation of % exceeds the % outstanding on contract %.',
+        v_amount, v_sale.selling_price - v_sale.amount_paid, v_sale.contract_number;
+    end if;
+
+    v_sum := v_sum + v_amount;
+    v_cycle := coalesce(v_cycle, v_sale.investment_cycle_id);
+  end loop;
+
+  if v_sum <> round(p_amount, 2) then
+    raise exception 'Allocations total % but the payment is %. They must match.', v_sum, p_amount;
+  end if;
+
+  v_cash := post_cash_transaction(
+    p_bank_account_id, v_cycle, coalesce(p_payment_date, current_date),
+    'inflow', round(p_amount, 2), 'business_repayment',
+    'Murabaha repayment received', 'repayments', null, null, null, p_payment_reference
+  );
+
+  insert into repayments (
+    business_id, investment_cycle_id, payment_date, amount, method,
+    bank_account_id, payment_reference, cash_transaction_id, notes,
+    status, recorded_by
+  ) values (
+    p_business_id, v_cycle, coalesce(p_payment_date, current_date), round(p_amount, 2), p_method,
+    p_bank_account_id, p_payment_reference, v_cash, p_notes, 'recorded', auth.uid()
+  )
+  returning * into v_repayment;
+
+  update cash_transactions set reference_id = v_repayment.id where id = v_cash;
+
+  for v_alloc in select * from jsonb_array_elements(p_allocations)
+  loop
+    v_amount := round((v_alloc ->> 'amount')::numeric, 2);
+
+    insert into repayment_allocations (repayment_id, murabaha_sale_id, amount)
+    values (v_repayment.id, (v_alloc ->> 'murabaha_sale_id')::uuid, v_amount);
+
+    select coalesce(sum(ra.amount), 0) into v_paid
+    from repayment_allocations ra
+    join repayments r on r.id = ra.repayment_id
+    where ra.murabaha_sale_id = (v_alloc ->> 'murabaha_sale_id')::uuid
+      and r.status <> 'reversed';
+
+    update murabaha_sales
+       set amount_paid = v_paid,
+           status = case
+             when v_paid >= selling_price then 'fully_paid'::murabaha_status
+             when v_paid > 0 then 'partially_paid'::murabaha_status
+             else status
+           end
+     where id = (v_alloc ->> 'murabaha_sale_id')::uuid;
+  end loop;
+
+  return v_repayment;
+end;
+$$;
+
+-- Reversal never edits the original; it posts a compensating record.
+create or replace function reverse_repayment(p_repayment_id uuid, p_reason text)
+returns repayments
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_orig repayments;
+  v_new repayments;
+  v_alloc record;
+  v_cash uuid;
+  v_paid numeric(18, 2);
+begin
+  if not has_role('ceo', 'accounts') then
+    raise exception 'Only the CEO or an Accounts Officer may reverse a repayment.';
+  end if;
+  if p_reason is null or length(trim(p_reason)) < 3 then
+    raise exception 'A reason is required to reverse a repayment.';
+  end if;
+
+  perform set_audit_reason(p_reason);
+
+  select * into v_orig from repayments where id = p_repayment_id for update;
+  if not found then
+    raise exception 'Repayment not found';
+  end if;
+  if v_orig.status = 'reversed' then
+    raise exception 'Receipt % has already been reversed.', v_orig.receipt_number;
+  end if;
+
+  perform record_approval('repayment_reversal', 'repayments', p_repayment_id,
+    'Reversal of receipt ' || v_orig.receipt_number, v_orig.amount, v_orig.recorded_by, p_reason);
+
+  v_cash := post_cash_transaction(
+    v_orig.bank_account_id, v_orig.investment_cycle_id, current_date,
+    'outflow', v_orig.amount, 'business_repayment',
+    'Reversal of receipt ' || v_orig.receipt_number, 'repayments', p_repayment_id,
+    null, null, v_orig.payment_reference
+  );
+  update cash_transactions set is_reversal = true, reverses_id = v_orig.cash_transaction_id
+   where id = v_cash;
+
+  insert into repayments (
+    business_id, investment_cycle_id, payment_date, amount, method,
+    bank_account_id, payment_reference, cash_transaction_id, status,
+    reverses_id, reversal_reason, recorded_by
+  ) values (
+    v_orig.business_id, v_orig.investment_cycle_id, current_date, v_orig.amount, v_orig.method,
+    v_orig.bank_account_id, v_orig.payment_reference, v_cash, 'reversed',
+    v_orig.id, p_reason, auth.uid()
+  )
+  returning * into v_new;
+
+  update repayments set status = 'reversed', reversal_reason = p_reason where id = p_repayment_id;
+
+  for v_alloc in select * from repayment_allocations where repayment_id = p_repayment_id
+  loop
+    insert into repayment_allocations (repayment_id, murabaha_sale_id, amount)
+    values (v_new.id, v_alloc.murabaha_sale_id, -v_alloc.amount);
+
+    select coalesce(sum(ra.amount), 0) into v_paid
+    from repayment_allocations ra
+    join repayments r on r.id = ra.repayment_id
+    where ra.murabaha_sale_id = v_alloc.murabaha_sale_id
+      and r.status <> 'reversed';
+
+    update murabaha_sales
+       set amount_paid = greatest(v_paid, 0),
+           status = case
+             when v_paid >= selling_price then 'fully_paid'::murabaha_status
+             when v_paid > 0 then 'partially_paid'::murabaha_status
+             else 'active'::murabaha_status
+           end
+     where id = v_alloc.murabaha_sale_id;
+  end loop;
+
+  return v_new;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Expenses (brief §19). Approval is required above the configurable limit.
+-- ---------------------------------------------------------------------------
+create or replace function approve_expense(p_expense_id uuid, p_reason text default null)
+returns expenses
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_exp expenses;
+begin
+  if not has_role('ceo', 'accounts') then
+    raise exception 'Only the CEO or an Accounts Officer may approve an expense.';
+  end if;
+
+  perform set_audit_reason(p_reason);
+
+  select * into v_exp from expenses where id = p_expense_id for update;
+  if not found then
+    raise exception 'Expense not found';
+  end if;
+  if v_exp.status not in ('draft', 'awaiting_approval') then
+    raise exception 'Expense % is % and cannot be approved.', v_exp.expense_number, v_exp.status;
+  end if;
+
+  perform record_approval('high_value_expense', 'expenses', p_expense_id,
+    'Expense ' || v_exp.expense_number, v_exp.amount, v_exp.created_by, p_reason);
+
+  update expenses
+     set status = 'approved', approved_by = auth.uid(), approved_at = now()
+   where id = p_expense_id
+  returning * into v_exp;
+
+  return v_exp;
+end;
+$$;
+
+-- Posts an approved expense to the cashbook.
+create or replace function pay_expense(
+  p_expense_id uuid,
+  p_bank_account_id uuid,
+  p_payment_reference text default null,
+  p_reason text default null
+)
+returns expenses
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_exp expenses;
+  v_cash uuid;
+  v_category cash_category;
+  v_code text;
+begin
+  if not has_role('ceo', 'accounts') then
+    raise exception 'Only the CEO or an Accounts Officer may pay an expense.';
+  end if;
+
+  perform set_audit_reason(p_reason);
+
+  select * into v_exp from expenses where id = p_expense_id for update;
+  if not found then
+    raise exception 'Expense not found';
+  end if;
+  if v_exp.status <> 'approved' then
+    raise exception 'Expense % must be approved before payment.', v_exp.expense_number;
+  end if;
+  if v_exp.cash_transaction_id is not null then
+    raise exception 'Expense % has already been paid.', v_exp.expense_number;
+  end if;
+
+  select code into v_code from expense_categories where id = v_exp.category_id;
+  v_category := case v_code
+    when 'shipping' then 'shipping'::cash_category
+    when 'clearing' then 'clearing'::cash_category
+    when 'customs' then 'customs'::cash_category
+    when 'local_logistics' then 'local_transport'::cash_category
+    when 'staff_salaries' then 'salaries'::cash_category
+    when 'software' then 'software'::cash_category
+    when 'bank_charges' then 'bank_charges'::cash_category
+    when 'professional_fees' then 'professional_fees'::cash_category
+    when 'office_expenses' then 'office_expense'::cash_category
+    else 'other_expense'::cash_category
+  end;
+
+  v_cash := post_cash_transaction(
+    p_bank_account_id, v_exp.investment_cycle_id, v_exp.expense_date,
+    'outflow', v_exp.amount, v_category,
+    v_exp.description, 'expenses', p_expense_id,
+    v_exp.procurement_order_id, v_exp.murabaha_sale_id, p_payment_reference
+  );
+
+  update expenses
+     set status = 'paid', cash_transaction_id = v_cash,
+         bank_account_id = p_bank_account_id,
+         payment_reference = coalesce(p_payment_reference, payment_reference)
+   where id = p_expense_id
+  returning * into v_exp;
+
+  return v_exp;
+end;
+$$;
