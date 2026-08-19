@@ -124,13 +124,14 @@ export default async function UsersPage() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <p>
-            Accounts are created in Supabase Auth — invite the person by email from the Supabase
-            dashboard, or let them sign up with their work address. Their profile appears here on
-            first sign-in.
+            Invite the person by email from the Supabase dashboard. Their profile appears in this
+            list straight away — a database trigger creates it the moment the account exists, so
+            you do not have to wait for them to sign in.
           </p>
           <p>
-            Assign a role straight away: a user with no role cannot read anything, because every
-            table&apos;s read policy requires one.
+            Then assign a role. A new account deliberately arrives with none, and a user without a
+            role can sign in but see nothing at all, because every table&apos;s read policy requires
+            one. Granting access is always a decision someone makes.
           </p>
         </CardContent>
       </Card>

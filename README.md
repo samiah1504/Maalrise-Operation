@@ -137,18 +137,18 @@ Further reading: [`docs/erd.md`](docs/erd.md) for the data model,
 
 ## Deployment
 
-**App** — Vercel. Set `NEXT_PUBLIC_SUPABASE_URL`,
-`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET`.
+See **[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)** for the full runbook: Supabase
+project, schema push, the first CEO account, Vercel, scheduled jobs, backups, a
+smoke test and a security checklist.
 
-**Database** — Supabase. Run `supabase db push`, enable Point-in-Time Recovery for
-backups, and confirm the `documents` storage bucket is private.
+Two things to know before you start:
 
-**Scheduled jobs** — `pg_cron` runs `run_daily_jobs()` at 06:00 where available.
-Otherwise point a scheduler at `/api/cron` once a day with the `CRON_SECRET` as a
-bearer token.
-
-Never expose `SUPABASE_SERVICE_ROLE_KEY` to the browser or prefix it with
-`NEXT_PUBLIC_`.
+- **Never run `supabase/seed.sql` against production.** It is demo data, and it
+  creates staff accounts whose password is published in this repository.
+  Production gets its settings and expense categories from the migrations, so
+  `supabase db push` alone yields a working system.
+- **`SUPABASE_SERVICE_ROLE_KEY` is server-only.** It bypasses RLS. Never expose
+  it to the browser or prefix it with `NEXT_PUBLIC_`.
 
 ---
 
