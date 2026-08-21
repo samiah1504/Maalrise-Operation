@@ -118,23 +118,37 @@ with check (can_write());
 
 -- ---------------------------------------------------------------------------
 -- Storage: a single private bucket for all uploaded evidence.
+--
+-- On hosted Supabase the storage tables are owned by the platform, so a
+-- migration (or the SQL Editor) may not be permitted to create the bucket or
+-- its policies. That is expected: the guarded block below applies them where
+-- it can (local development, self-hosted) and otherwise raises a NOTICE, and
+-- the deployment guide creates the same bucket and four policies through the
+-- dashboard UI, which is the platform-supported path.
 -- ---------------------------------------------------------------------------
-insert into storage.buckets (id, name, public, file_size_limit)
-values ('documents', 'documents', false, 26214400)
-on conflict (id) do nothing;
+do $$
+begin
+  insert into storage.buckets (id, name, public, file_size_limit)
+  values ('documents', 'documents', false, 26214400)
+  on conflict (id) do nothing;
 
-create policy "documents_read" on storage.objects
-for select to authenticated
-using (bucket_id = 'documents' and auth_role() is not null);
+  create policy "documents_read" on storage.objects
+  for select to authenticated
+  using (bucket_id = 'documents' and auth_role() is not null);
 
-create policy "documents_write" on storage.objects
-for insert to authenticated
-with check (bucket_id = 'documents' and can_write());
+  create policy "documents_write" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'documents' and can_write());
 
-create policy "documents_update" on storage.objects
-for update to authenticated
-using (bucket_id = 'documents' and can_write());
+  create policy "documents_update" on storage.objects
+  for update to authenticated
+  using (bucket_id = 'documents' and can_write());
 
-create policy "documents_delete" on storage.objects
-for delete to authenticated
-using (bucket_id = 'documents' and is_ceo());
+  create policy "documents_delete" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'documents' and is_ceo());
+exception
+  when insufficient_privilege or undefined_table then
+    raise notice 'Storage bucket/policies not applied here (%). Create the "documents" bucket and its four policies in the Supabase dashboard instead — see docs/DEPLOYMENT.md.', sqlerrm;
+end;
+$$;
