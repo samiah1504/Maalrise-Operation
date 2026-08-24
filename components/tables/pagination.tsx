@@ -4,19 +4,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatNumber } from '@/lib/money'
-
-export const PAGE_SIZE = 25
-
-/** Reads the current page from the URL. Used by the server component. */
-export function pageFrom(searchParams: Record<string, string | undefined>) {
-  const page = Number(searchParams.page ?? 1)
-  return Number.isFinite(page) && page > 0 ? Math.floor(page) : 1
-}
-
-export function rangeFor(page: number, size = PAGE_SIZE) {
-  const from = (page - 1) * size
-  return { from, to: from + size - 1 }
-}
+import { PAGE_SIZE } from '@/lib/pagination'
 
 export function Pagination({
   page,

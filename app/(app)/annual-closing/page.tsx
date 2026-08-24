@@ -112,7 +112,7 @@ export default async function AnnualClosingPage() {
               triggerLabel={closing ? 'Recompute figures' : 'Start cycle closing'}
               triggerIcon={<Calculator className="h-4 w-4" />}
               reasonPlaceholder="e.g. Cycle reached maturity, beginning closing process"
-              action={(reason) => computeAnnualClosing(cycle.investment_cycle_id, reason)}
+              action={computeAnnualClosing.bind(null, cycle.investment_cycle_id)}
             />
           ) : null
         }
@@ -223,9 +223,7 @@ export default async function AnnualClosingPage() {
                             triggerVariant={step.ceoOnly ? 'gold' : 'default'}
                             triggerSize="sm"
                             reasonPlaceholder="e.g. All transactions reviewed against source documents"
-                            action={(reason) =>
-                              advanceAnnualClosing(cycle.investment_cycle_id, step.key, reason)
-                            }
+                            action={advanceAnnualClosing.bind(null, cycle.investment_cycle_id, step.key)}
                           />
                         )
                       ) : null}

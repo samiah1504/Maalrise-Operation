@@ -5,14 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Search, X } from 'lucide-react'
 import { Input, Select } from '@/components/ui/form-controls'
 import { Button } from '@/components/ui/button'
-import { titleCase } from '@/lib/utils'
-
-export interface FilterDef {
-  /** Query-string key. */
-  name: string
-  label: string
-  options: { value: string; label: string }[]
-}
+import type { FilterDef } from '@/lib/filters'
 
 /**
  * Search, filters and sorting for every list, driven entirely by the URL so a
@@ -133,13 +126,4 @@ export function ListFilters({
       ) : null}
     </div>
   )
-}
-
-/** Builds a filter definition from an enum's values. */
-export function enumFilter(name: string, label: string, values: readonly string[]): FilterDef {
-  return {
-    name,
-    label,
-    options: values.map((v) => ({ value: v, label: titleCase(v) })),
-  }
 }

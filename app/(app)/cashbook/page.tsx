@@ -9,8 +9,10 @@ import { PageHeader, StatCard } from '@/components/ui/page'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/states'
-import { ListFilters, enumFilter } from '@/components/tables/list-filters'
-import { Pagination, PAGE_SIZE, pageFrom, rangeFor } from '@/components/tables/pagination'
+import { ListFilters } from '@/components/tables/list-filters'
+import { enumFilter } from '@/lib/filters'
+import { Pagination } from '@/components/tables/pagination'
+import { PAGE_SIZE, pageFrom, rangeFor } from '@/lib/pagination'
 import { CardList, RecordCard, TableWrap } from '@/components/tables/record-list'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableNumeric, TableRow,

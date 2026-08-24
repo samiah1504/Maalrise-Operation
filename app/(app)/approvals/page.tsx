@@ -129,7 +129,7 @@ export default async function ApprovalsPage() {
                       confirmLabel="Approve"
                       triggerLabel="Approve"
                       triggerSize="sm"
-                      action={(reason) => approveProcurement(p.id, reason)}
+                      action={approveProcurement.bind(null, p.id)}
                     />
                   }
                 />
@@ -161,7 +161,7 @@ export default async function ApprovalsPage() {
                       triggerLabel="Finalise"
                       triggerVariant="gold"
                       triggerSize="sm"
-                      action={(reason) => finaliseLandedCost(p.id, reason)}
+                      action={finaliseLandedCost.bind(null, p.id)}
                     />
                   }
                 />
@@ -188,7 +188,7 @@ export default async function ApprovalsPage() {
                       confirmLabel="Approve sale"
                       triggerLabel="Approve"
                       triggerSize="sm"
-                      action={(reason) => approveMurabahaSale(s.id, reason)}
+                      action={approveMurabahaSale.bind(null, s.id)}
                     />
                   }
                 />
@@ -215,7 +215,7 @@ export default async function ApprovalsPage() {
                       confirmLabel="Approve"
                       triggerLabel="Approve"
                       triggerSize="sm"
-                      action={(reason) => approveExpense(e.id, reason)}
+                      action={approveExpense.bind(null, e.id)}
                     />
                   }
                 />

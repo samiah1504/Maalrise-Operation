@@ -8,7 +8,8 @@ import { formatDate } from '@/lib/dates'
 import { PageHeader, StatCard } from '@/components/ui/page'
 import { Badge, StatusBadge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/states'
-import { ListFilters, enumFilter } from '@/components/tables/list-filters'
+import { ListFilters } from '@/components/tables/list-filters'
+import { enumFilter } from '@/lib/filters'
 import { CardList, RecordCard, TableWrap } from '@/components/tables/record-list'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableNumeric, TableRow,
@@ -186,7 +187,7 @@ export default async function ExpensesPage({
                             confirmLabel="Approve"
                             triggerLabel="Approve"
                             triggerSize="sm"
-                            action={(reason) => approveExpense(e.id, reason)}
+                            action={approveExpense.bind(null, e.id)}
                           />
                         ) : null}
                         {e.status === 'approved' ? (
@@ -253,7 +254,7 @@ export default async function ExpensesPage({
                                 triggerLabel="Approve"
                                 triggerVariant="ghost"
                                 triggerSize="sm"
-                                action={(reason) => approveExpense(e.id, reason)}
+                                action={approveExpense.bind(null, e.id)}
                               />
                             ) : null}
                             {e.status === 'approved' ? (

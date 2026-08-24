@@ -117,7 +117,7 @@ export default async function MurabahaDetailPage({
                 confirmLabel="Approve sale"
                 triggerLabel="Approve sale"
                 reasonPlaceholder="e.g. Contract signed by both parties"
-                action={(reason) => approveMurabahaSale(sale.id, reason)}
+                action={approveMurabahaSale.bind(null, sale.id)}
               />
             ) : (
               <p className="text-sm text-muted-foreground">

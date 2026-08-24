@@ -8,7 +8,8 @@ import { formatDate, formatDateTime } from '@/lib/dates'
 import { PageHeader, StatCard, DetailRow } from '@/components/ui/page'
 import { StatusBadge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/states'
-import { ListFilters, enumFilter } from '@/components/tables/list-filters'
+import { ListFilters } from '@/components/tables/list-filters'
+import { enumFilter } from '@/lib/filters'
 import { CardList, RecordCard, TableWrap } from '@/components/tables/record-list'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableNumeric, TableRow,
@@ -178,7 +179,7 @@ export default async function GoodsReceiptsPage({
                         triggerVariant="gold"
                         triggerSize="sm"
                         reasonPlaceholder="e.g. Inspected on arrival, quantities agreed"
-                        action={(reason) => confirmGoodsReceipt(r.id, reason)}
+                        action={confirmGoodsReceipt.bind(null, r.id)}
                       />
                     ) : null
                   }
@@ -253,7 +254,7 @@ export default async function GoodsReceiptsPage({
                                   <DetailRow label="Missing">{formatNumber(t.missing)}</DetailRow>
                                 </dl>
                               }
-                              action={(reason) => confirmGoodsReceipt(r.id, reason)}
+                              action={confirmGoodsReceipt.bind(null, r.id)}
                             />
                           ) : (
                             <span className="text-xs text-muted-foreground">Confirmed</span>

@@ -7,7 +7,8 @@ import { titleCase } from '@/lib/utils'
 import { PageHeader, StatCard } from '@/components/ui/page'
 import { Badge, StatusBadge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/states'
-import { ListFilters, enumFilter } from '@/components/tables/list-filters'
+import { ListFilters } from '@/components/tables/list-filters'
+import { enumFilter } from '@/lib/filters'
 import { CardList, RecordCard, TableWrap } from '@/components/tables/record-list'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,

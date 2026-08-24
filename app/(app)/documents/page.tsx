@@ -7,7 +7,8 @@ import { PageHeader, StatCard } from '@/components/ui/page'
 import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/states'
 import { ListFilters } from '@/components/tables/list-filters'
-import { Pagination, PAGE_SIZE, pageFrom, rangeFor } from '@/components/tables/pagination'
+import { Pagination } from '@/components/tables/pagination'
+import { PAGE_SIZE, pageFrom, rangeFor } from '@/lib/pagination'
 import { CardList, RecordCard, TableWrap } from '@/components/tables/record-list'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,

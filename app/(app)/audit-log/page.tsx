@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/states'
 import { ListFilters } from '@/components/tables/list-filters'
-import { Pagination, PAGE_SIZE, pageFrom, rangeFor } from '@/components/tables/pagination'
+import { Pagination } from '@/components/tables/pagination'
+import { PAGE_SIZE, pageFrom, rangeFor } from '@/lib/pagination'
 import type { AuditLog, Json } from '@/lib/database.types'
 
 export const metadata = { title: 'Audit Log' }

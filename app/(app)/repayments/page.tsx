@@ -161,7 +161,7 @@ export default async function RepaymentsPage({
                       triggerSize="sm"
                       destructive
                       reasonPlaceholder="e.g. Payment returned unpaid by the bank"
-                      action={(reason) => reverseRepayment(r.id, reason)}
+                      action={reverseRepayment.bind(null, r.id)}
                     />
                   ) : null
                 }
@@ -232,7 +232,7 @@ export default async function RepaymentsPage({
                               triggerSize="sm"
                               destructive
                               reasonPlaceholder="e.g. Payment returned unpaid by the bank"
-                              action={(reason) => reverseRepayment(r.id, reason)}
+                              action={reverseRepayment.bind(null, r.id)}
                             />
                           ) : null}
                         </TableCell>

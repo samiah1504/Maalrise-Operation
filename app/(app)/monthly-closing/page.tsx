@@ -116,14 +116,7 @@ export default async function MonthlyClosingPage() {
                   triggerVariant="gold"
                   triggerIcon={<Lock className="h-4 w-4" />}
                   reasonPlaceholder="e.g. Accounts reconciled and reviewed for the month"
-                  action={(reason) =>
-                    closeMonth(
-                      cycle.investment_cycle_id,
-                      nextToClose.period_year,
-                      nextToClose.period_month,
-                      reason,
-                    )
-                  }
+                  action={closeMonth.bind(null, cycle.investment_cycle_id, nextToClose.period_year, nextToClose.period_month)}
                 />
               </CardContent>
             </Card>
@@ -194,7 +187,7 @@ export default async function MonthlyClosingPage() {
                               triggerIcon={<Unlock className="h-4 w-4" />}
                               destructive
                               reasonPlaceholder="e.g. Late supplier invoice must be posted to this month"
-                              action={(reason) => reopenMonth(closing.id, reason)}
+                              action={reopenMonth.bind(null, closing.id)}
                             />
                           ) : !isClosed && m === nextToClose ? (
                             <ConfirmAction
@@ -204,14 +197,7 @@ export default async function MonthlyClosingPage() {
                               triggerLabel="Close"
                               triggerSize="sm"
                               reasonPlaceholder="e.g. Accounts reconciled and reviewed"
-                              action={(reason) =>
-                                closeMonth(
-                                  cycle.investment_cycle_id,
-                                  m.period_year,
-                                  m.period_month,
-                                  reason,
-                                )
-                              }
+                              action={closeMonth.bind(null, cycle.investment_cycle_id, m.period_year, m.period_month)}
                             />
                           ) : null}
                         </TableCell>

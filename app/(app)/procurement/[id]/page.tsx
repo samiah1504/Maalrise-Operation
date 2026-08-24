@@ -146,7 +146,7 @@ export default async function ProcurementDetailPage({
                     <DetailRow label="Products">{items.length}</DetailRow>
                   </dl>
                 }
-                action={(reason) => approveProcurement(order.id, reason)}
+                action={approveProcurement.bind(null, order.id)}
               />
             ) : (
               <p className="text-sm text-muted-foreground">
@@ -209,7 +209,7 @@ export default async function ProcurementDetailPage({
                       </DetailRow>
                     </dl>
                   }
-                  action={(reason) => finaliseLandedCost(order.id, reason)}
+                  action={finaliseLandedCost.bind(null, order.id)}
                 />
               ) : null}
               {order.landed_cost_finalised ? (

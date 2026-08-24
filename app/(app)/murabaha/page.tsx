@@ -9,7 +9,8 @@ import { formatDate, describeDue } from '@/lib/dates'
 import { PageHeader, StatCard, DetailRow } from '@/components/ui/page'
 import { StatusBadge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/states'
-import { ListFilters, enumFilter } from '@/components/tables/list-filters'
+import { ListFilters } from '@/components/tables/list-filters'
+import { enumFilter } from '@/lib/filters'
 import { CardList, RecordCard, TableWrap } from '@/components/tables/record-list'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableNumeric, TableRow,
@@ -253,7 +254,7 @@ export default async function MurabahaPage({
                                   <DetailRow label="Due">{formatDate(s.due_date)}</DetailRow>
                                 </dl>
                               }
-                              action={(reason) => approveMurabahaSale(s.id, reason)}
+                              action={approveMurabahaSale.bind(null, s.id)}
                             />
                           ) : pendingApproval ? (
                             <span className="text-xs text-muted-foreground">
